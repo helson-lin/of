@@ -183,7 +183,7 @@ func openInFileManager(path string) error {
 	case "windows":
 		// Windows - 使用 Explorer
 		cmd := exec.Command("explorer", path)
-		cmd.Run() // Windows explorer 即使成功打开文件夹也可能返回非零状态码
+		_ = cmd.Run() // Windows explorer 即使成功打开文件夹也可能返回非零状态码
 		// 所以我们忽略错误，因为文件夹实际上已经被打开了
 		return nil
 	case "linux":
