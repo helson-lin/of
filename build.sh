@@ -31,14 +31,19 @@ for PLATFORM in "${PLATFORMS[@]}"; do
         exit 1
     fi
 
+    # 创建正确的目录结构
+    mkdir -p release/temp
+    cp release/$OUTPUT_NAME release/temp/$APP_NAME
+
     # 将构建的二进制文件打包为 tar.gz
     echo "Compressing $OUTPUT_NAME..."
-    tar -czvf release/$OUTPUT_NAME.tar.gz -C release $OUTPUT_NAME
+    tar -czvf release/$OUTPUT_NAME.tar.gz -C release/temp $APP_NAME
     if [ $? -ne 0 ]; then
         echo 'An error occurred while compressing! Aborting the script execution...'
         exit 1
     fi
 
-    # 删除原始的二进制文件（可选）
+    # 清理临时文件
+    rm -rf release/temp
     rm release/$OUTPUT_NAME
 done
