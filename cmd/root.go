@@ -368,25 +368,21 @@ func openFileWithApp(filePath string, appName string) error {
 		fmt.Printf("🔍 Opening file with app: %s -> %s\n", filePath, appName)
 	}
 
-	// 获取应用程序命令
 	var cmd *exec.Cmd
 
-	switch appName {
-	case "vscode":
-		cmd = exec.Command("code", filePath)
-	case "wps":
-		cmd = exec.Command("wps", filePath)
-	case "preview":
-		// macOS 使用 open 命令打开预览
-		if runtime.GOOS == "darwin" {
-			cmd = exec.Command("open", filePath)
-		} else {
-			// 其他系统使用默认程序
-			return openInFileManager(filePath)
-		}
+	switch runtime.GOOS {
+	case "darwin":
+		// macOS 使用 open -a 命令
+		cmd = exec.Command("open", "-a", appName, filePath)
+	case "windows":
+		// Windows 使用 start 命令
+		cmd = exec.Command("start", appName, filePath)
 	default:
-		// 尝试使用自定义应用程序
+		// Linux 和其他系统，尝试使用自定义管理器
 		if customCmd, exists := getCustomManager(appName); exists {
+			if debug {
+				fmt.Printf("🔍 Using custom app: %s -> %s\n", appName, customCmd)
+			}
 			cmd = exec.Command(customCmd, filePath)
 		} else {
 			// 使用默认文件管理器

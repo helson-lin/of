@@ -33,11 +33,19 @@ for PLATFORM in "${PLATFORMS[@]}"; do
 
     # 创建正确的目录结构
     mkdir -p release/temp
-    cp release/$OUTPUT_NAME release/temp/$APP_NAME
+    if [ $GOOS = "windows" ]; then
+        cp release/$OUTPUT_NAME release/temp/$APP_NAME.exe
+    else
+        cp release/$OUTPUT_NAME release/temp/$APP_NAME
+    fi
 
     # 将构建的二进制文件打包为 tar.gz
     echo "Compressing $OUTPUT_NAME..."
-    tar -czvf release/$OUTPUT_NAME.tar.gz -C release/temp $APP_NAME
+    if [ $GOOS = "windows" ]; then
+        tar -czvf release/$OUTPUT_NAME.tar.gz -C release/temp $APP_NAME.exe
+    else
+        tar -czvf release/$OUTPUT_NAME.tar.gz -C release/temp $APP_NAME
+    fi
     if [ $? -ne 0 ]; then
         echo 'An error occurred while compressing! Aborting the script execution...'
         exit 1
