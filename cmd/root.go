@@ -565,7 +565,7 @@ func validateApp(appName string) (bool, string) {
 			return false, fmt.Sprintf("Application path '%s' does not exist", appName)
 		}
 		// 如果不是路径，提示用户需要完整路径
-		return false, fmt.Sprintf("Windows requires a full path for applications. \nFor example: C:\\Program Files\\Notepad++\\notepad++.exe")
+		return false, "Windows requires a full path for applications. \nFor example: C:\\Program Files\\Notepad++\\notepad++.exe"
 	default:
 		// Linux 和其他系统检查 PATH
 		if _, err := exec.LookPath(appName); err == nil {
