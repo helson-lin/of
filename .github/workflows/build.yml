@@ -145,11 +145,16 @@ jobs:
           end
           EOF
 
+          # 更新版本号
           sed -i "s|version \".*\"|version \"${GITHUB_REF#refs/tags/}\"|" of.rb
+
+          # 更新ARM架构的URL和SHA256
           sed -i "s|url \".*-darwin-arm64.tar.gz\"|url \"https://github.com/helson-lin/of/releases/download/${GITHUB_REF#refs/tags/}/of-${GITHUB_REF#refs/tags/}-darwin-arm64.tar.gz\"|" of.rb
-          sed -i "s|sha256 \".*\" # ARM|sha256 \"$SHA256_ARM\" # ARM|" of.rb
+          sed -i "s|sha256 \"placeholder_arm\"|sha256 \"$SHA256_ARM\"|" of.rb
+
+          # 更新Intel架构的URL和SHA256
           sed -i "s|url \".*-darwin-amd64.tar.gz\"|url \"https://github.com/helson-lin/of/releases/download/${GITHUB_REF#refs/tags/}/of-${GITHUB_REF#refs/tags/}-darwin-amd64.tar.gz\"|" of.rb
-          sed -i "s|sha256 \".*\" # Intel|sha256 \"$SHA256_INTEL\" # Intel|" of.rb
+          sed -i "s|sha256 \"placeholder_intel\"|sha256 \"$SHA256_INTEL\"|" of.rb
 
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
