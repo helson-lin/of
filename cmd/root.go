@@ -212,16 +212,53 @@ func getFileManagerName() string {
 // loadConfig 加载配置文件
 func loadConfig() {
 	// 设置配置文件路径
-	home, err := os.UserHomeDir()
-	if err != nil {
-		if debug {
-			fmt.Printf("⚠️ Warning: cannot get home directory: %v\n", err)
+	var home string
+	var err error
+
+	// 检查是否使用 sudo 运行
+	if os.Geteuid() == 0 && os.Getenv("SUDO_USER") != "" {
+		// 使用 sudo 运行时，尝试获取原始用户的主目录
+		sudoUser := os.Getenv("SUDO_USER")
+		if sudoUser != "" {
+			// 在 macOS 上，用户主目录通常在 /Users/username
+			home = "/Users/" + sudoUser
+			if _, err := os.Stat(home); os.IsNotExist(err) {
+				// 如果路径不存在，回退到当前用户的主目录
+				home, err = os.UserHomeDir()
+				if err != nil {
+					if debug {
+						fmt.Printf("⚠️ Warning: cannot get home directory: %v\n", err)
+					}
+					return
+				}
+			}
+		} else {
+			home, err = os.UserHomeDir()
+			if err != nil {
+				if debug {
+					fmt.Printf("⚠️ Warning: cannot get home directory: %v\n", err)
+				}
+				return
+			}
 		}
-		return
+	} else {
+		// 正常运行时，使用当前用户的主目录
+		home, err = os.UserHomeDir()
+		if err != nil {
+			if debug {
+				fmt.Printf("⚠️ Warning: cannot get home directory: %v\n", err)
+			}
+			return
+		}
 	}
 
 	configDir := filepath.Join(home, ".of")
 	configFile := filepath.Join(configDir, "config.yaml")
+
+	if debug {
+		fmt.Printf("🔍 Config directory: %s\n", configDir)
+		fmt.Printf("🔍 Config file: %s\n", configFile)
+	}
 
 	// 创建配置目录
 	if err := os.MkdirAll(configDir, 0755); err != nil {
@@ -360,6 +397,182 @@ func getAppForFileType(filePath string) string {
 	}
 
 	return "" // 没有配置的文件类型使用默认程序
+}
+
+// findSimilarApp 查找相似的应用程序
+func findSimilarApp(appName string) (string, bool) {
+	switch runtime.GOOS {
+	case "darwin":
+		// 检查 /Applications 和 /System/Applications 目录
+		appDirs := []string{"/Applications", "/System/Applications"}
+
+		for _, appDir := range appDirs {
+			entries, err := os.ReadDir(appDir)
+			if err != nil {
+				continue
+			}
+
+			for _, entry := range entries {
+				if entry.IsDir() && strings.HasSuffix(entry.Name(), ".app") {
+					appNameWithoutExt := strings.TrimSuffix(entry.Name(), ".app")
+
+					// 精确匹配（忽略大小写）
+					if strings.EqualFold(appNameWithoutExt, appName) {
+						return appNameWithoutExt, true
+					}
+
+					// 编辑距离匹配（处理拼写错误，距离不超过2）
+					if editDistance(strings.ToLower(appNameWithoutExt), strings.ToLower(appName)) <= 2 {
+						return appNameWithoutExt, true
+					}
+
+					// 包含匹配（但要求至少3个字符匹配）
+					if len(appName) >= 3 && len(appNameWithoutExt) >= 3 {
+						if strings.Contains(strings.ToLower(appNameWithoutExt), strings.ToLower(appName)) ||
+							strings.Contains(strings.ToLower(appName), strings.ToLower(appNameWithoutExt)) {
+							return appNameWithoutExt, true
+						}
+					}
+				}
+			}
+		}
+
+		// 检查 PATH 中的命令行工具
+		if path, err := exec.LookPath(appName); err == nil {
+			return filepath.Base(path), true
+		}
+
+		// 在 PATH 中查找相似的工具
+		pathDirs := strings.Split(os.Getenv("PATH"), ":")
+		for _, pathDir := range pathDirs {
+			entries, err := os.ReadDir(pathDir)
+			if err != nil {
+				continue
+			}
+
+			for _, entry := range entries {
+				if !entry.IsDir() {
+					fileName := entry.Name()
+
+					// 精确匹配（忽略大小写）
+					if strings.EqualFold(fileName, appName) {
+						return fileName, true
+					}
+
+					// 编辑距离匹配（距离不超过2）
+					if editDistance(strings.ToLower(fileName), strings.ToLower(appName)) <= 2 {
+						return fileName, true
+					}
+
+					// 包含匹配（但要求至少3个字符匹配）
+					if len(appName) >= 3 && len(fileName) >= 3 {
+						if strings.Contains(strings.ToLower(fileName), strings.ToLower(appName)) ||
+							strings.Contains(strings.ToLower(appName), strings.ToLower(fileName)) {
+							return fileName, true
+						}
+					}
+				}
+			}
+		}
+
+		return "", false
+	default:
+		// 其他系统只检查 PATH
+		if path, err := exec.LookPath(appName); err == nil {
+			return filepath.Base(path), true
+		}
+		return "", false
+	}
+}
+
+// editDistance 计算两个字符串的编辑距离
+func editDistance(s1, s2 string) int {
+	len1, len2 := len(s1), len(s2)
+
+	// 创建矩阵
+	matrix := make([][]int, len1+1)
+	for i := range matrix {
+		matrix[i] = make([]int, len2+1)
+	}
+
+	// 初始化第一行和第一列
+	for i := 0; i <= len1; i++ {
+		matrix[i][0] = i
+	}
+	for j := 0; j <= len2; j++ {
+		matrix[0][j] = j
+	}
+
+	// 填充矩阵
+	for i := 1; i <= len1; i++ {
+		for j := 1; j <= len2; j++ {
+			if s1[i-1] == s2[j-1] {
+				matrix[i][j] = matrix[i-1][j-1]
+			} else {
+				matrix[i][j] = min(matrix[i-1][j]+1, matrix[i][j-1]+1, matrix[i-1][j-1]+1)
+			}
+		}
+	}
+
+	return matrix[len1][len2]
+}
+
+// min 返回三个整数中的最小值
+func min(a, b, c int) int {
+	if a <= b && a <= c {
+		return a
+	}
+	if b <= a && b <= c {
+		return b
+	}
+	return c
+}
+
+// validateApp 验证应用程序是否存在
+func validateApp(appName string) (bool, string) {
+	switch runtime.GOOS {
+	case "darwin":
+		// macOS 检查 /Applications 和 /System/Applications 目录
+		appPaths := []string{
+			filepath.Join("/Applications", appName+".app"),
+			filepath.Join("/System/Applications", appName+".app"),
+		}
+
+		for _, appPath := range appPaths {
+			if _, err := os.Stat(appPath); err == nil {
+				return true, appPath
+			}
+		}
+
+		// 检查是否在 PATH 中的命令行工具
+		if _, err := exec.LookPath(appName); err == nil {
+			return true, appName
+		}
+
+		// 尝试查找相似的应用程序
+		if similarApp, found := findSimilarApp(appName); found {
+			return false, fmt.Sprintf("Application '%s' does not exist, but found a similar application '%s'. \nPlease use the correct name: %s", appName, similarApp, similarApp)
+		}
+
+		return false, fmt.Sprintf("Application '%s' does not exist. Please ensure:\n  1. The application is installed in the /Applications or /System/Applications directory\n  2. Command line tools are added to the PATH", appName)
+	case "windows":
+		// Windows 需要完整路径，这里只做基本检查
+		if strings.Contains(appName, "/") || strings.Contains(appName, "\\") {
+			// 如果是路径，检查文件是否存在
+			if _, err := os.Stat(appName); err == nil {
+				return true, appName
+			}
+			return false, fmt.Sprintf("Application path '%s' does not exist", appName)
+		}
+		// 如果不是路径，提示用户需要完整路径
+		return false, fmt.Sprintf("Windows requires a full path for applications. \nFor example: C:\\Program Files\\Notepad++\\notepad++.exe")
+	default:
+		// Linux 和其他系统检查 PATH
+		if _, err := exec.LookPath(appName); err == nil {
+			return true, appName
+		}
+		return false, fmt.Sprintf("Application '%s' does not exist in PATH", appName)
+	}
 }
 
 // openFileWithApp 使用指定应用程序打开文件

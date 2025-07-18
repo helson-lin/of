@@ -120,6 +120,13 @@ var configAddFileTypeCmd = &cobra.Command{
 		ext := strings.ToLower(strings.TrimPrefix(args[0], "."))
 		app := args[1]
 
+		// 验证应用程序是否存在
+		exists, message := validateApp(app)
+		if !exists {
+			fmt.Printf("❌ %s\n", message)
+			os.Exit(1)
+		}
+
 		if config.FileTypeApps == nil {
 			config.FileTypeApps = make(map[string]string)
 		}
@@ -185,6 +192,79 @@ var configListFileTypesCmd = &cobra.Command{
 	},
 }
 
+var configAddFileGroupCmd = &cobra.Command{
+	Use:   "add-filegroup [group] [app]",
+	Short: "add file type group application mapping",
+	Long: `Add file type group application mapping.
+
+Available groups:
+  audio     - mp3, wav, flac, aac, ogg, m4a, wma
+  video     - mp4, avi, mkv, mov, wmv, flv, webm, m4v, 3gp
+  image     - jpg, jpeg, png, gif, bmp, svg, tiff, webp
+  document  - pdf, doc, docx, txt, md, rtf
+  code      - py, js, ts, go, java, cpp, c, h, html, css, json, xml, yaml, yml
+  archive   - zip, rar, 7z, tar, gz, bz2
+  spreadsheet - xls, xlsx, csv
+  presentation - ppt, pptx`,
+	Args: cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		loadConfig()
+
+		group := strings.ToLower(args[0])
+		app := args[1]
+
+		// 验证应用程序是否存在
+		exists, message := validateApp(app)
+		if !exists {
+			fmt.Printf("❌ %s\n", message)
+			os.Exit(1)
+		}
+
+		// 定义文件类型组
+		fileGroups := map[string][]string{
+			"audio":        {"mp3", "wav", "flac", "aac", "ogg", "m4a", "wma"},
+			"video":        {"mp4", "avi", "mkv", "mov", "wmv", "flv", "webm", "m4v", "3gp"},
+			"image":        {"jpg", "jpeg", "png", "gif", "bmp", "svg", "tiff", "webp"},
+			"document":     {"pdf", "doc", "docx", "txt", "md", "rtf"},
+			"code":         {"py", "js", "ts", "go", "java", "cpp", "c", "h", "html", "css", "json", "xml", "yaml", "yml"},
+			"archive":      {"zip", "rar", "7z", "tar", "gz", "bz2"},
+			"spreadsheet":  {"xls", "xlsx", "csv"},
+			"presentation": {"ppt", "pptx"},
+		}
+
+		extensions, exists := fileGroups[group]
+		if !exists {
+			fmt.Printf("❌ Unknown file group: %s\n", group)
+			fmt.Println("Available groups:")
+			for g := range fileGroups {
+				fmt.Printf("  %s\n", g)
+			}
+			os.Exit(1)
+		}
+
+		if config.FileTypeApps == nil {
+			config.FileTypeApps = make(map[string]string)
+		}
+
+		// 添加所有扩展名
+		count := 0
+		for _, ext := range extensions {
+			config.FileTypeApps[ext] = app
+			count++
+		}
+
+		viper.Set("file_type_apps", config.FileTypeApps)
+
+		if err := viper.WriteConfig(); err != nil {
+			fmt.Printf("❌ Error saving config: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Printf("✅ Added file group mapping: %s (%d file types) -> %s\n", group, count, app)
+		fmt.Printf("📄 Added extensions: %s\n", strings.Join(extensions, ", "))
+	},
+}
+
 func init() {
 	configCmd.AddCommand(configShowCmd)
 	configCmd.AddCommand(configAddManagerCmd)
@@ -193,5 +273,6 @@ func init() {
 	configCmd.AddCommand(configAddFileTypeCmd)
 	configCmd.AddCommand(configRemoveFileTypeCmd)
 	configCmd.AddCommand(configListFileTypesCmd)
+	configCmd.AddCommand(configAddFileGroupCmd)
 	rootCmd.AddCommand(configCmd)
 }
