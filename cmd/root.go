@@ -52,7 +52,10 @@ Examples:
 
 			// 如果没有提供子命令，显示帮助信息
 			if len(args) == 0 && path == "" {
-				cmd.Help()
+				if err := cmd.Help(); err != nil {
+					fmt.Printf("❌ Error: cannot display help: %v\n", err)
+					os.Exit(1)
+				}
 				return
 			}
 
