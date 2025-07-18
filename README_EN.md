@@ -1,20 +1,31 @@
-# of - Open File Manager
+# of - Smart File Opener
 
-English | [中文](README.md)
+[English](README_EN.md) | 中文
 
-A simple yet powerful command-line tool for opening files and directories in the system's default file manager.
+A powerful and intelligent command-line tool for opening files and directories with the right applications.
 
 ## ✨ Features
 
-- 🚀 **Cross-platform Support**: Supports macOS, Windows, and Linux
-- 🔧 **Custom File Managers**: Support for configuring custom file managers
-- 📝 **Recent Usage History**: Automatically records recently opened paths
-- ⚙️ **Configuration Management**: Support for configuration file management
-- 🐛 **Debug Mode**: Provides detailed debug information
-- 📦 **Subcommand System**: Rich subcommand functionality
-- 📄 **File Type Recognition**: Automatically select opening programs based on file type
+- 🚀 **Cross-platform**: Works on macOS, Windows, and Linux
+- 🧠 **Smart file type detection**: Automatically chooses the best app for each file type
+- 🔧 **Customizable**: Configure your own file type mappings and managers
+- 📝 **Recent history**: Tracks recently opened paths
+- ⚙️ **Easy configuration**: Simple YAML-based configuration
+- 🐛 **Debug mode**: Detailed debugging information
+- 📦 **Rich commands**: Comprehensive subcommand system
+- 🔍 **Smart suggestions**: Auto-corrects typos in application names
 
 ## 🚀 Quick Start
+
+### Installation
+
+```bash
+# Using Homebrew (macOS)
+brew install helson-lin/tap/of
+
+# Or download from releases
+# Visit: https://github.com/helson-lin/of/releases
+```
 
 ### Basic Usage
 
@@ -22,10 +33,10 @@ A simple yet powerful command-line tool for opening files and directories in the
 # Open current directory
 of
 
-# Open specified path
+# Open specific path
 of /path/to/folder
 
-# Use flag to specify path
+# Open file with flag
 of -p /path/to/file
 
 # Specify file manager
@@ -35,16 +46,25 @@ of -m finder /path/to/folder
 of --debug /path/to/folder
 ```
 
-### Subcommands
+## 📋 Commands
 
-#### View recently used paths
+### Main Commands
+
 ```bash
-of list
+# Open files/directories
+of [path] [flags]
+
+# Show help
+of --help
+
+# Show version
+of version
 ```
 
-#### Configuration Management
+### Configuration Commands
+
 ```bash
-# View current configuration
+# Show current configuration
 of config show
 
 # Add custom file manager
@@ -53,169 +73,227 @@ of config add-manager "vscode" "code"
 # Set default file manager
 of config set-default "finder"
 
-# Clear recent usage history
+# Clear recent paths
 of config clear-recent
 
-# Add file type mapping
-of config add-filetype "txt" "vscode"
-of config add-filetype "xlsx" "wps"
+# List recent paths
+of list
+```
 
-# View file type mappings
+### File Type Management
+
+```bash
+# Add single file type mapping
+of config add-filetype "txt" "TextEdit"
+of config add-filetype "py" "code"
+
+# Add file type group (batch mapping)
+of config add-filegroup "audio" "IINA"
+of config add-filegroup "video" "IINA"
+of config add-filegroup "image" "Preview"
+of config add-filegroup "code" "vscode"
+
+# List all file type mappings
 of config list-filetypes
 
 # Remove file type mapping
 of config remove-filetype "txt"
 ```
 
-#### Version Information
-```bash
-of version
-```
-
 ## ⚙️ Configuration
 
-Configuration file location: `~/.of/config.yaml`
+Configuration file: `~/.of/config.yaml`
 
-### Configuration Example
+### Example Configuration
 
 ```yaml
-default_manager: "finder"
-custom_managers:
-  vscode: "code"
-  sublime: "subl"
-  nautilus: "nautilus"
+default_manager: ""
+custom_managers: {}
 recent_paths:
   - "/Users/username/Documents"
   - "/Users/username/Downloads"
 max_recent: 10
 file_type_apps:
-  txt: "vscode"
+  txt: "TextEdit"
   md: "vscode"
-  json: "vscode"
-  xlsx: "wps"
-  docx: "wps"
-  pdf: "preview"
-  jpg: "preview"
+  py: "code"
+  jpg: "Preview"
+  mp4: "IINA"
+  mp3: "IINA"
 ```
 
-## 🔧 Custom File Managers
+## 🧠 Smart Features
 
-### Adding Custom Managers
+### Auto-correction
+
+The tool automatically suggests correct application names when you make typos:
 
 ```bash
-# Add VS Code as file manager
-of config add-manager "vscode" "code"
+# Typo: "cusor" → Auto-suggests: "Cursor"
+of config add-filetype txt cusor
+# Output: Application 'cusor' does not exist, but found a similar application 'Cursor'.
+#         Please use the correct name: Cursor
 
-# Add Sublime Text
-of config add-manager "sublime" "subl"
-
-# Add Nautilus (Linux)
-of config add-manager "nautilus" "nautilus"
+# Typo: "previe" → Auto-suggests: "Preview"
+of config add-filetype txt previe
+# Output: Application 'previe' does not exist, but found a similar application 'Preview'.
+#         Please use the correct name: Preview
 ```
 
-### Using Custom Managers
+### File Type Groups
+
+Quickly configure multiple file types at once:
 
 ```bash
-# Open folder with VS Code
-of -m vscode /path/to/folder
+# Audio files (mp3, wav, flac, aac, ogg, m4a, wma)
+of config add-filegroup audio IINA
 
-# Set as default manager
-of config set-default "vscode"
+# Video files (mp4, avi, mkv, mov, wmv, flv, webm, m4v, 3gp)
+of config add-filegroup video IINA
+
+# Image files (jpg, jpeg, png, gif, bmp, svg, tiff, webp)
+of config add-filegroup image Preview
+
+# Code files (py, js, ts, go, java, cpp, c, h, html, css, json, xml, yaml, yml)
+of config add-filegroup code vscode
+
+# Document files (pdf, doc, docx, txt, md, rtf)
+of config add-filegroup document TextEdit
 ```
 
-## 📄 File Type Recognition
+## 🔧 Platform Support
 
-The `of` tool can automatically select the most appropriate application to open files based on their type:
+### macOS
+- Uses `open -a` for applications
+- Checks `/Applications` and `/System/Applications`
+- Supports command-line tools in PATH
+- Auto-corrects application names
 
-### Default File Type Mappings
+### Windows
+- Uses `start` command
+- Requires full application paths
+- Example: `C:\Program Files\Notepad++\notepad++.exe`
 
-- **Text Files**: `.txt`, `.md`, `.json`, `.yaml`, `.yml`, `.xml`, `.html`, `.css`, `.js`, `.ts`, `.py`, `.go`, `.java`, `.cpp`, `.c`, `.h` → VS Code
-- **Office Files**: `.xlsx`, `.xls`, `.docx`, `.doc`, `.pptx`, `.ppt` → WPS
-- **Media Files**: `.pdf`, `.jpg`, `.jpeg`, `.png`, `.gif`, `.bmp`, `.svg` → Preview Program
-
-### Custom File Type Mappings
-
-```bash
-# Add new file type mappings
-of config add-filetype "log" "vscode"
-of config add-filetype "csv" "excel"
-of config add-filetype "mp4" "vlc"
-
-# View all file type mappings
-of config list-filetypes
-
-# Remove file type mapping
-of config remove-filetype "log"
-```
-
-### How It Works
-
-1. **File Detection**: Tool checks if the target path is a file
-2. **Extension Recognition**: Extracts file extension and converts to lowercase
-3. **Application Lookup**: Searches for corresponding application in configuration
-4. **Program Launch**: Opens file with the found application
-5. **Fallback Mechanism**: Uses system default program if not configured
+### Linux
+- Uses custom manager commands
+- Checks PATH for command-line tools
+- Falls back to default file manager
 
 ## 🐛 Debug Mode
 
-Enable debug mode to view detailed execution information:
+Enable debug mode to see detailed execution information:
 
 ```bash
-of --debug /path/to/folder
+of --debug /path/to/file
 ```
 
-Debug information includes:
-- Operating system information
-- File manager being used
-- Configuration file loading status
+Debug output includes:
+- Operating system detection
+- Configuration file loading
+- File type detection
+- Application selection
 - Command execution details
 
-## 📋 Supported File Managers
+## 📝 Examples
 
-### macOS
-- Finder (default)
-- VS Code
-- Sublime Text
-- Terminal
+### Development Workflow
 
-### Windows
-- Explorer (default)
-- VS Code
-- Total Commander
-- Directory Opus
+```bash
+# Open project in VS Code
+of config add-filetype py code
+of config add-filetype js code
+of config add-filetype go code
 
-### Linux
-- xdg-open (default)
-- Nautilus
-- Dolphin
-- Thunar
+# Open files
+of main.py      # Opens in VS Code
+of app.js       # Opens in VS Code
+of server.go    # Opens in VS Code
+```
 
-## 🛠️ Building
+### Media Management
+
+```bash
+# Configure media players
+of config add-filegroup audio IINA
+of config add-filegroup video IINA
+of config add-filegroup image Preview
+
+# Open media files
+of song.mp3     # Opens in IINA
+of video.mp4    # Opens in IINA
+of photo.jpg    # Opens in Preview
+```
+
+### Document Workflow
+
+```bash
+# Configure document apps
+of config add-filetype pdf Preview
+of config add-filetype docx Pages
+of config add-filetype xlsx Numbers
+
+# Open documents
+of report.pdf   # Opens in Preview
+of document.docx # Opens in Pages
+of data.xlsx    # Opens in Numbers
+```
+
+## 🛠️ Development
+
+### Building
 
 ```bash
 # Build executable
-go build -o of
+go build -o of main.go
 
-# Install to system
-go install
+# Build for specific platform
+GOOS=windows GOARCH=amd64 go build -o of.exe main.go
+GOOS=darwin GOARCH=arm64 go build -o of main.go
 ```
 
-## 📝 Changelog
+### Testing
 
-### v0.0.1
-- Basic functionality implementation
-- Cross-platform support
-- Configuration file support
-- Custom file managers
-- Recent usage history
-- Debug mode
-- Subcommand system
-- File type recognition
+```bash
+# Run tests
+go test ./...
+
+# Run with debug
+./of --debug test.txt
+```
+
+## 📋 File Type Groups
+
+Available file type groups for batch configuration:
+
+| Group | Extensions | Description |
+|-------|------------|-------------|
+| `audio` | mp3, wav, flac, aac, ogg, m4a, wma | Audio files |
+| `video` | mp4, avi, mkv, mov, wmv, flv, webm, m4v, 3gp | Video files |
+| `image` | jpg, jpeg, png, gif, bmp, svg, tiff, webp | Image files |
+| `document` | pdf, doc, docx, txt, md, rtf | Document files |
+| `code` | py, js, ts, go, java, cpp, c, h, html, css, json, xml, yaml, yml | Code files |
+| `archive` | zip, rar, 7z, tar, gz, bz2 | Archive files |
+| `spreadsheet` | xls, xlsx, csv | Spreadsheet files |
+| `presentation` | ppt, pptx | Presentation files |
 
 ## 🤝 Contributing
 
-Welcome to submit Issues and Pull Requests!
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
 ## 📄 License
 
-MIT License 
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## 🆕 Changelog
+
+### v0.0.1
+- Initial release
+- Cross-platform support
+- Smart file type detection
+- Auto-correction for application names
+- File type groups for batch configuration
+- Comprehensive configuration system 
