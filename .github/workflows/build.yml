@@ -1,0 +1,153 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.22'
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Extract version
+        id: version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          else
+            echo "VERSION=dev-$(date +%Y%m%d)-${{ github.sha }}" >> $GITHUB_ENV
+          fi
+
+      - name: Build
+        run: bash build.sh ${{ env.VERSION }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: release/
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: release/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: "release/**"
+          generate_release_notes: true
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
+
+  homebrew:
+    runs-on: ubuntu-latest
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: release/
+
+      - name: Update Homebrew Formula
+        run: |
+          git clone https://github.com/helson-lin/homebrew-tap.git
+          cd homebrew-tap
+          
+          SHA256_ARM=$(shasum -a 256 ../release/of-${GITHUB_REF#refs/tags/}-darwin-arm64.tar.gz | awk '{print $1}')
+          SHA256_INTEL=$(shasum -a 256 ../release/of-${GITHUB_REF#refs/tags/}-darwin-amd64.tar.gz | awk '{print $1}')
+          echo "SHA256_ARM: $SHA256_ARM"
+          echo "SHA256_INTEL: $SHA256_INTEL"
+
+          cat > of.rb << 'EOF'
+          class Of < Formula
+            desc "Open file or directory in file manager from terminal"
+            homepage "https://github.com/helson-lin/of"
+            version "0.0.1"
+
+            on_macos do
+              if Hardware::CPU.arm?
+                url "https://github.com/helson-lin/of/releases/download/v0.0.1/of-v0.0.1-darwin-arm64.tar.gz"
+                sha256 "placeholder_arm"
+              else
+                url "https://github.com/helson-lin/of/releases/download/v0.0.1/of-v0.0.1-darwin-amd64.tar.gz"
+                sha256 "placeholder_intel"
+              end
+            end
+
+            def install
+              bin.install "of"
+            end
+
+            test do
+              system "#{bin}/of", "--version"
+            end
+          end
+          EOF
+
+          sed -i "s|version \".*\"|version \"${GITHUB_REF#refs/tags/}\"|" of.rb
+          sed -i "s|url \".*-darwin-arm64.tar.gz\"|url \"https://github.com/helson-lin/of/releases/download/${GITHUB_REF#refs/tags/}/of-${GITHUB_REF#refs/tags/}-darwin-arm64.tar.gz\"|" of.rb
+          sed -i "s|sha256 \".*\" # ARM|sha256 \"$SHA256_ARM\" # ARM|" of.rb
+          sed -i "s|url \".*-darwin-amd64.tar.gz\"|url \"https://github.com/helson-lin/of/releases/download/${GITHUB_REF#refs/tags/}/of-${GITHUB_REF#refs/tags/}-darwin-amd64.tar.gz\"|" of.rb
+          sed -i "s|sha256 \".*\" # Intel|sha256 \"$SHA256_INTEL\" # Intel|" of.rb
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add of.rb
+          git commit -m "Update of to ${GITHUB_REF#refs/tags/}"
+          git push https://${{ secrets.TOKEN }}@github.com/helson-lin/homebrew-tap.git main 
