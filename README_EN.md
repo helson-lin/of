@@ -14,6 +14,7 @@ A powerful and intelligent command-line tool for opening files and directories w
 - 🐛 **Debug mode**: Detailed debugging information
 - 📦 **Rich commands**: Comprehensive subcommand system
 - 🔍 **Smart suggestions**: Auto-corrects typos in application names
+- 📋 **Clipboard support**: One-click copy path to system clipboard
 
 ## 🚀 Quick Start
 
@@ -44,7 +45,34 @@ of -m finder /path/to/folder
 
 # Enable debug mode
 of --debug /path/to/folder
+
+# Copy path to clipboard
+of --copy
+of --copy /path/to/folder
 ```
+
+## 📋 Clipboard Functionality
+
+### Copy Path to Clipboard
+
+You can use the `--copy` or `-c` flag to copy a path to the system clipboard:
+
+```bash
+# Copy current directory path to clipboard
+of --copy
+
+# Copy specified path to clipboard
+of --copy /path/to/folder
+
+# Use short flag
+of -c /path/to/file
+```
+
+This feature is particularly useful in scenarios such as:
+- Need to paste path into other applications
+- Share file path with colleagues
+- Use path in scripts
+- Quickly get absolute path
 
 ## 📋 Commands
 

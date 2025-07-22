@@ -13,10 +13,11 @@ import (
 )
 
 var (
-	version string = "0.0.1"
-	path    string
-	debug   bool
-	manager string
+	version         string = "0.0.1"
+	path            string
+	debug           bool
+	manager         string
+	copyToClipboard bool
 
 	// 配置结构体
 	config struct {
@@ -37,7 +38,8 @@ Examples:
   of /path/to/folder    # 打开指定路径
   of -p /path/to/file   # 使用标志指定路径
   of -m finder          # 指定文件管理器
-  of --debug            # 启用调试模式`,
+  of --debug            # 启用调试模式
+  of --copy             # 复制路径到剪切板`,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			// 加载配置
@@ -48,15 +50,6 @@ Examples:
 				fmt.Printf("🔍 Debug mode enabled\n")
 				fmt.Printf("🔍 OS: %s\n", runtime.GOOS)
 				fmt.Printf("🔍 Manager: %s\n", manager)
-			}
-
-			// 如果没有提供子命令，显示帮助信息
-			if len(args) == 0 && path == "" {
-				if err := cmd.Help(); err != nil {
-					fmt.Printf("❌ Error: cannot display help: %v\n", err)
-					os.Exit(1)
-				}
-				return
 			}
 
 			// 获取要打开的路径
@@ -86,6 +79,25 @@ Examples:
 			if err != nil {
 				fmt.Printf("❌ Error: cannot get absolute path: %v\n", err)
 				os.Exit(1)
+			}
+
+			// 如果指定了复制到剪切板
+			if copyToClipboard {
+				if err := copyToClipboardPath(absPath); err != nil {
+					fmt.Printf("❌ Error: cannot copy path to clipboard: %v\n", err)
+					os.Exit(1)
+				}
+				fmt.Printf("📋 Path copied to clipboard: %s\n", absPath)
+				return
+			}
+
+			// 如果没有提供子命令且没有指定路径，显示帮助信息
+			if len(args) == 0 && path == "" && !copyToClipboard {
+				if err := cmd.Help(); err != nil {
+					fmt.Printf("❌ Error: cannot display help: %v\n", err)
+					os.Exit(1)
+				}
+				return
 			}
 
 			// 如果没有指定管理器，使用默认管理器
@@ -151,6 +163,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&path, "path", "p", "", "path to file or directory to open")
 	rootCmd.Flags().StringVarP(&manager, "manager", "m", "", "specify file manager to use")
 	rootCmd.Flags().BoolVarP(&debug, "debug", "d", false, "enable debug mode")
+	rootCmd.Flags().BoolVarP(&copyToClipboard, "copy", "c", false, "copy path to clipboard")
 }
 
 // openInFileManager 使用系统默认的文件管理器打开文件或文件夹
@@ -604,4 +617,42 @@ func openFileWithApp(filePath string, appName string) error {
 	}
 
 	return cmd.Run()
+}
+
+// copyToClipboardPath 将路径复制到剪切板
+// 支持以下平台：
+// - macOS: 使用 pbcopy
+// - Windows: 使用 clip.exe
+// - Linux: 优先使用 xclip，如果不可用则使用 xsel
+func copyToClipboardPath(path string) error {
+	switch runtime.GOOS {
+	case "darwin":
+		// macOS - 使用 pbcopy
+		cmd := exec.Command("pbcopy")
+		cmd.Stdin = strings.NewReader(path)
+		return cmd.Run()
+	case "windows":
+		// Windows - 使用 clip.exe
+		cmd := exec.Command("clip.exe")
+		cmd.Stdin = strings.NewReader(path)
+		return cmd.Run()
+	case "linux":
+		// Linux - 尝试使用 xclip，如果失败则尝试 xsel
+		cmd := exec.Command("xclip", "-selection", "clipboard")
+		cmd.Stdin = strings.NewReader(path)
+		if err := cmd.Run(); err == nil {
+			return nil
+		}
+
+		// 如果 xclip 失败，尝试 xsel
+		cmd = exec.Command("xsel", "--input", "--clipboard")
+		cmd.Stdin = strings.NewReader(path)
+		if err := cmd.Run(); err == nil {
+			return nil
+		}
+
+		return fmt.Errorf("⚠️ neither xclip nor xsel is available on this Linux system")
+	default:
+		return fmt.Errorf("⚠️ unsupported operating system: %s", runtime.GOOS)
+	}
 }
